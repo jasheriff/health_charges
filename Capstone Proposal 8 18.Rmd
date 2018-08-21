@@ -1,0 +1,84 @@
+---
+title: "Capstone Proposal"
+author: "Julia Sheriff"
+date: "8/16/2018"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+---
+output:
+  html_document: default
+---
+
+# Capstone Proposal
+### Healthcare Charges of Varied Populations
+##### By Julia Sheriff
+
+***
+
+#### **The Problem**
+
+I would like to examine the ways in which various health variables impact health insurance charges in the United States. Variables include age, sex, BMI, number of children, smoking status, and region. I will explore the relationships of these variables with health insurance charges. Being able to estimate an individuial's health insurance charges enables insurance providers to create plans that are both financially sound and ethical.
+
+***
+
+#### **The Client**
+
+The clinet would be private insurance companies or the government. Both insurance companies and the government require cost analysis in order to develop insurance plans that are financially sound, maximizing profits while providing ethical reimbursement. Understanding which variables have the strongest impact on healthcare will assist in establishing ideal premium prices and service reimbursement rates. 
+
+***
+
+#### **The Data**
+
+The dataset is available at <https://www.kaggle.com/mirichoi0218/insurance/home>. 
+
+Health Variables:
+
+|Variable|Description|
+|:---|:------------------------------------------------------------------------------|
+|Age| individual's age in years
+|Sex| insurance contractor gender: female, male 
+|BMI| Body mass index: metric that shows weight relative to height, (weight in kg / heght in m^2). Ideally 18.5 to 24.9.
+|Children| Number of children covered by health insurance, Number of dependents 
+|Smoker| Smoker or Non-smoker
+|Region| Beneficiary's US residental area: northeast, southeast, northwest, southwest
+|Charges| Individual medical costs billed by health insurance
+
+
+
+```{r}
+
+data4 <- read.csv("capstone_data.csv", header=TRUE)
+
+head(data4)
+
+```
+
+
+***
+
+#### **The Approach**
+
+My approach encompasses the following:
+
+1. Data wrangling and cleaning
+    + Account for any missing values or outliers
+2. Exploratory Data Analysis
+    + Use a combination of inferential statistics and data visualization to identify trends between health charges and health variables
+        + Determine significant variables
+        + Identify trends and correlations between variables
+3. Machine Learning
+    + Further examine the correlation between health charges and health variables using classification techniques and/or regression models
+4. Data visualization and report out
+    + Compile findings into deliverables (listed below)
+  
+***
+
+#### **Deliverables**
+
+The deliverables will consist of a report on my findings, a slide deck, and the corresponding R code used for data analysis. The deliverables will be submitted and published on GitHub.
+
+
