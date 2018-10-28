@@ -1,0 +1,74 @@
+---
+title: "machine learning approach"
+author: "Julia Sheriff"
+date: "10/28/2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+###GENERAL IDEA OF DATASET
+
+```{r}
+health_charges_clean <- read.csv("health_charges_clean.csv")
+str(health_charges_clean)
+head(health_charges_clean)
+```
+
+###PREPPING MY VARIABLES
+* CHARGES - dependent variable for all predictions
+    + continuous
+    + CREATE 2 binary vars (above .75 IQR, below .75 IQR)
+* Age
+    + continuous
+    + CREATE 5 binary vars (10 year groups (18-25 counted as one bracket))
+* Bmi 
+    + continuous
+    + categorical (I now have 4 categories, but am adding two more (breaking up obese into 3 categories according to CDC)).
+    + CREATE 6 binary vars 
+* Sex 
+    + binary
+* Children 
+    + categorical
+    + CREATE 5 binary vars 
+* Smoker 
+    + binary 
+* Region 
+    + categorical
+    + CRETE 4 binary vars 
+    
+###LINEAR REGRESSIONS:
+* INITIAL MODELS
+    + BMI as continuous
+      - QUESTION: According to mean graph, linear relationship changes when BMI is under 30, 30-35, and over 35. How do I do an accurate linear regression? Should I subset the data and do three separate linear regressions for BMI under 30, 30-35, and over 40? 
+    + Age as continuous
+    + Age and BMI combined
+      - QUESTION: Again, should I subset the data according to the changes in the linearity of BMI?
+* ASSESSMENT: 
+    + See which regression shows the highest R^2 
+
+###LOGISTIC REGRESSIONS:   
+* INITIAL MODEL includes all independent variables:
+    - Smoker
+    - Bmi (categorical)
+    - Sex
+    - Region
+    - Children
+    - Age
+* ASSESSMENT: 
+    - See which are strong predictors
+    - Create new and improved model 
+    - Calculate probabilities for high charges from each facet used in final model
+    
+###CLUSTERING:
+* VARIABLES- all variables as binary (including charges). 
+* PROCESS 1: 
+    + Heigharachial dendrogram if R allows, to choose # of clusters
+    + Apply clustering
+* PRCESS 1 ASSESSMENT: Find percentage of "high" charges found in each group 
+* (PROCESS 2): 
+    + Learn how to do something meaningful using the last kmeans exercise I couldn't do...
