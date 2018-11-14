@@ -1,0 +1,515 @@
+---
+title: "Health Charges"
+author: "Julia Sheriff"
+date: "11/6/2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## **INTRODUCTION**
+With advances in health analytics, we are better to assess relationships between various health conditions, treatments, and costs. This dataset describes health charges, sex, region, number of children, bmi, region, and age over 1338 observations. Our variable of interest is health charges. Health insurance companies must create plans that effectively ensure their clients and maximize profits. Because health charges vary from person to person, it is difficult to design insurance plans which collectively maximize profits. Our goal is to estimate insurance charges base on an individual's various characteristics. 
+   
+   By understanding the relationship between charges and these variables, insurance companies can do the following:   
+* Predict their charges as their population changes over time.    
+* Examine how to provide reimbursement for health services which could make their population less costly.   
+* Determine the most locations of the most profitable populations and how to increase clients from that area. Example: Choosing a location for an HMO.
+
+*** 
+
+## **THE DATA**
+
+**Health Variables:**
+
+The dataset is available at: <https://www.kaggle.com/mirichoi0218/insurance/home>
+
+|Variable|Description|
+|:-------|:------------------------------------------------------------------------------|
+|Age| individual's age in years
+|Sex| insurance contractor gender: female, male 
+|BMI| Body mass index: weight in kg / heght in m^2
+|BMI_factor| Categories of BMI values: underweight, healthy weight, overweight, obese
+|Children| Number of children covered by health insurance, Number of dependents
+|Smoker| Smoker or Non-smoker
+|Region| Beneficiary's US residental area: northeast, southeast, northwest, southwest
+|Charges| Individual medical costs billed by health insurance
+
+```{r}
+health_charges <- read.csv("capstone_data.csv", header = TRUE)
+head(health_charges)
+str(health_charges)
+```
+***
+
+## **CAVEATS**   
+
+*While we have data on seven variables in our observations, there are other factors which could impact health charges.*    
+* income of individual   
+* education level    
+* employment status   
+* location: urban, suburban, rural   
+* chronic health conditions   
+* muscle / fat ratio (in addition to BMI which compares weight to height)   
+
+*There are also other factors that would be useful in interpreting the charges themselves:*   
+* breakdown of charges for the following:
+    + urgent care
+    + preventative care
+    + medication 
+
+***
+
+## **DATA CLEANING** 
+* I assessed the data for missing values and nonsensical outliers, and the data was clean. The data was tidy because each row represents and observation and each column represents a variable.  
+* I created factor variables for age, bmi, and charges to allow for categorical studies on those continuous variables.    
+* I also created dummy variables for all facets in order to run clustering algorhithms on the dataset.
+```{r, eval=F, echo=T}
+summary(health_charges == "")
+summary(is.na.data.frame(health_charges)) 
+
+unique(health_charges[,1])
+unique(health_charges[,2])
+unique(health_charges[,3])
+unique(health_charges[,4])
+unique(health_charges[,5])
+unique(health_charges[,6])
+unique(health_charges[,7])
+unique(health_charges[,8])
+
+head(sort(health_charges$bmi), n=25)
+tail(sort(health_charges$bmi), n=25)
+head(sort(health_charges$charges), n=25)
+head(sort(health_charges$charges), n=25)
+
+```
+
+```{r}
+library(dplyr)
+
+#age variables:
+health_charges <- health_charges %>% 
+  mutate(bmi_factor = if_else ( bmi < 18.5, "underweight",
+         if_else ( bmi >= 18.5 & bmi < 25, "healthy_weight", 
+         if_else ( bmi >= 25 & bmi < 30, "overweight",
+         if_else (bmi >= 30 & bmi < 35, "obese_1",
+         if_else (bmi >= 35 & bmi < 40, "obese_2",
+         if_else (bmi >= 40, "obese_3", NA_character_)))))))
+         
+health_charges$bmi_factor <- factor(health_charges$bmi_factor, 
+                      levels = c("underweight", "healthy_weight", "overweight", "obese_1", "obese_2", "obese_3"),
+                      ordered = TRUE)
+
+health_charges <- health_charges[ , c(1:3, 8, 4:7)]
+
+#health charges split into "high" and "low"
+vquantile <- as.vector(quantile(health_charges$charges))
+hcut <- vquantile[c(4)]
+health_charges <- health_charges %>% mutate(charges_factor = if_else (charges < hcut, "low",
+                                            if_else (charges >= hcut, "high", NA_character_)))
+
+#age variables:
+health_charges <- health_charges %>% mutate(age_factor = if_else( age < 20, "10s",
+                                                        if_else ( age >= 20 & age < 30, "20s",
+                                                        if_else ( age >= 30 & age < 40, "30s",
+                                                        if_else ( age >= 40 & age < 50, "40s",
+                                                        if_else ( age >= 50 & age < 60, "50s",
+                                                        if_else ( age >= 60, "60s", NA_character_)))))))
+health_charges$age_factor <- factor(health_charges$age_factor, 
+                                    levels = c("10s", "20s", "30s", "40s", "50s", "60s"), 
+                                    ordered = TRUE)
+health_charges$charges_factor <- factor(health_charges$charges_factor, 
+                             levels = c("low","high"), 
+                             ordered = TRUE)
+
+health_charges_clean <- health_charges
+str(health_charges_clean)
+
+```
+ 
+```{r}
+binary_charges <- health_charges_clean
+colnames(binary_charges)
+library(fastDummies)
+
+binary_charges <- fastDummies::dummy_cols(binary_charges, select_columns = "charges_factor")
+binary_charges <- fastDummies::dummy_cols(binary_charges, select_columns = "age_factor")
+binary_charges <- fastDummies::dummy_cols(binary_charges, select_columns = "bmi_factor")
+binary_charges <- fastDummies::dummy_cols(binary_charges, select_columns = "children")
+binary_charges <- fastDummies::dummy_cols(binary_charges, select_columns = "smoker")
+binary_charges <- fastDummies::dummy_cols(binary_charges, select_columns = "region")
+binary_charges <- fastDummies::dummy_cols(binary_charges, select_columns = "sex")
+
+#deleted non-binary columns:
+binary_charges <- binary_charges[ c("charges_factor_high",
+                                    "charges_factor_low",
+                                    "bmi_factor_overweight",
+                                    "bmi_factor_obese_1",
+                                    "bmi_factor_healthy_weight",
+                                    "bmi_factor_obese_2",
+                                    "bmi_factor_obese_3",
+                                    "bmi_factor_underweight",
+                                    "children_0",
+                                    "children_1",
+                                    "children_3",
+                                    "children_2",
+                                    "children_5",
+                                    "children_4" ,
+                                    "smoker_yes",
+                                    "smoker_no",
+                                    "region_southwest",
+                                    "region_southeast",
+                                    "region_northwest",
+                                    "region_northeast",
+                                    "sex_female",
+                                    "sex_male") ]
+
+str(binary_charges)
+```
+***
+
+## **EXPLORATORY DATA ANALYSIS**
+### **UNIVARIATE ANALYSIS**
+**AGE**  
+* Disporportionately high number of 18-19 ages;  
+* Otherwise, even age distribution.   
+**SEXES**  
+* Even distribution    
+**BMI and BMI_FACTOR**  
+* Normal distribution  
+* The mean of the data is approximately at the border of overweight and obese.  
+* The number of obese observations is approximately equal to the sum of the non-obese observations.
+**CHILDREN**  
+* The data is skewed right.     
+**SMOKER**  
+* The ratio of non-smokers to smokers is approximately 4 : 1     
+**REGION**   
+* All regions except southeast had between 324-325 observations.
+* Perhaps cluster sampling was used for data collection.     
+**CHARGES**   
+* SHAPIRO.TEST   
+  + HO: Charges frequency follows a normal distribution.   
+  + HA: Charges frequency does not follow a normal distribution.   
+  + RESULTS:   
+    - P-Value: < 2.2e-16 < .05   
+    - Reject HO.   
+    - Evidence supports the claim that charges frequency does not follow a normal distribution.
+
+```{r}
+shapiro.test(health_charges_clean$charges)
+```
+
+### **MULTIVARIATE ANALYSIS**  
+
+```{r echo=FALSE, fig.height=6, fig.width=8}
+library(ggplot2)
+ggplot(health_charges_clean, 
+       aes(x = bmi, y = charges, color = bmi_factor, alpha = .005 ))+
+  geom_point() +
+  geom_jitter() +
+  geom_smooth (method = "loess", color = "black")
+```
+
+### **Effect of BMI on charges**  
+* Charges increase with higher BMIs.  
+* There is a positive linear correlation between charges and bmi less than 35.  
+* There is no meaningful correlation between charges and bmi above 35.
+\newpage
+```{r echo=FALSE, fig.height= 6, fig.width=6}
+
+health_charges_clean$children <- as.factor(health_charges_clean$children)
+ggplot(health_charges_clean, aes(x = children, y = charges, color = sex)) +
+  geom_bar(stat = "identity", aes(color = sex, fill = sex), 
+           width = .7, position = "dodge")
+```
+
+### **Effect of children on charges, considering sex**  
+* Charges decrease with higher numbers of children.  
+* Women do not have higher health charges than men in regard to the number of children.
+\newpage
+```{r echo=FALSE, fig.height=6, fig.width=8}
+ggplot(health_charges_clean, aes(x = age, y = charges, color = bmi_factor), alpha = .02, size = .02) +
+  geom_point(aes(color = bmi_factor, fill = bmi_factor))+
+  facet_grid( . ~ smoker)+
+  geom_smooth(se = FALSE, method = "loess", weight = .005, color = "black", alpha = .02 )
+```
+
+### **Timeseries of charges, considering BMI and smoking**  
+* Smokers have higher charges than non-smokers.  
+* Smokers see a strong positive correlation between a higher BMI and charges.  
+* Obese smokers have higher charges than most non-smokers of all BMIs.
+\newpage
+```{r echo=FALSE, fig.height=6, fig.width=8}
+ggplot(health_charges_clean, aes(x = region, y = charges, color = bmi_factor))+
+  geom_bar(stat = "identity", position = "dodge", 
+           aes(color = bmi_factor, fill = bmi_factor), width = .7)
+```
+
+### **Region's effect on charges, considering BMI**     
+* There were no underweight observations in the southeast region.   
+* BMI is a stronger indicator for charges in the south than in the north.
+
+### **OUTLIER EXPLORATION**
+I was curious to observe outliers for the dataset. None of the outliers seemed unreasonable. It is important to keep high charges in order to accurately assess the population charges as a whole.
+```{r}
+ggplot(health_charges_clean, aes(x = region, y = charges))+
+  geom_boxplot( alpha = .2)
+
+ggplot(health_charges_clean, aes(x = age_factor, y = charges))+ 
+geom_boxplot(color = "black", size = 1, alpha = .2) +
+geom_jitter(color = "green", size = 1, alpha = .2)
+
+ggplot(health_charges_clean, aes(x = sex, y = charges))+ 
+geom_boxplot(color = "black", size = 1, alpha = .2) +
+geom_jitter(color = "green", size = 1, alpha = .2) 
+
+levels(health_charges_clean$bmi_factor)
+ggplot(health_charges_clean, aes(x = bmi_factor, y = charges))+ 
+geom_boxplot(color = "black", size = 1, alpha = .2) +
+geom_jitter(color = "green", size = 1, alpha = .2)
+
+childrenf <- as.factor(health_charges_clean$children)
+ggplot(health_charges_clean, aes(x = children, y = charges))+ 
+geom_boxplot(color = "black", alpha = .2) +
+geom_jitter(color = "green", size = .5, alpha = .2) 
+
+ggplot(health_charges_clean, aes(x = smoker, y = charges))+ 
+geom_boxplot(color = "black", alpha = .2) +
+geom_jitter(color = "green", size = .5, alpha = .2) 
+
+ggplot(health_charges_clean, aes(x = region, y = charges))+ 
+geom_boxplot(color = "black", alpha = .2) +
+geom_jitter(color = "green", size = .5, alpha = .2) 
+
+```   
+
+***   
+
+##PREDICTIVE MODELS
+
+####LINEAR REGRESSION   
+* *Linear model general description:*  
+    + No high collinearity between variables.
+    + This model includes all variables aside from sex, because it was insignificant in initial models.
+    + This model has 3 outliers removed, as determined by the initial linear model with all variables aside from sex.
+    + Adjusted R-squared: .7536, so the 75% of the value of the charges can be attributed to these variables.
+* *Linear model variables:*
+    + Sex was insignificant in initial models, so the final model below does not include sex. 
+    + Significant variables:
+      - Being a smoker increases charges by $23754.01
+      - Children:
+        - Having 2 children increases charges by 1633.53. 
+        - Having 3 children increases charges by 963.67. 
+      - Higher bmi increases charges by $331.84
+      - Higher age increases charges by $257.43
+      - Region: 
+        - Living in the southeast decreased charges by $941.98. 
+        - Living in the southwest decreased charges by $809.73.      
+        
+```{r}
+lmall <- lm ( charges ~ bmi + age + smoker + children + region + sex, data = health_charges_clean)
+library(car)
+car::vif(lmall)
+```
+```
+summary(lmall)
+lmall <- lm ( charges ~ bmi + age + smoker + children + region, data = health_charges_clean)
+plot(lmall)
+nrow(health_charges_clean)
+plot(lmall)
+#outliers: 322, 578, 1013 
+```
+
+```{r}
+chargesout <- health_charges_clean[ c(1:321, 323:577, 579:1012, 1014:1338), ]
+lmallout <- lm ( charges ~ bmi + age + smoker + children + region, data = chargesout)
+summary(lmallout, method = lm)
+plot(lmallout)
+```
+
+####LINEAR REGRESSION OF "HIGH" CHARGES
+* The purpose of this model is to see which facets are most significant in this subset of the population.
+* Adjusted R-squared:  0.6135, so 61% of the values of charges can be attributed to these variables. "High" charges are less predictable than charges in general.
+* Age, smoker, and bmi are significant in both. 
+* Notable differences in predictive nature of "smoker" and "bmi" between the general population and "high charge" population: 
+    + Smoker:  stronger predictor for the general population
+        - Difference in charges: $23616.0 versus $9586.85 
+        - Difference in R^2: 0.6195 versus 0.1342
+    + Bmi: stronger predictor for population with "high" charges
+        - Difference in charges: $393.87 versus $1166.60 
+        - Difference in R^2: 0.03862 versus 0.4016
+```{r}
+vquantile <- as.vector(quantile(health_charges$charges))
+hcut <- vquantile[c(4)]
+hcut
+cut <- health_charges_clean[ c(health_charges_clean$charges > 16639.91), ]
+
+str(cut)
+
+lmcut <- lm ( charges ~ bmi + age + smoker + sex + children + region, data = cut)
+summary(lmcut, method = lm)
+```
+
+```{r}
+#smoker:
+lmsmoke <- lm ( charges ~ smoker, data = health_charges_clean)
+summary(lmsmoke, method = lm)
+
+lmsmokecut <- lm ( charges ~ smoker, data = cut)
+summary(lmsmokecut, method = lm)
+
+#bmi
+lmbmi <- lm ( charges ~ bmi, data = health_charges_clean)
+summary(lmbmi, method = lm)
+
+lmbmicut <- lm ( charges ~ bmi, data = cut)
+summary(lmbmicut, method = lm)
+```
+
+
+###LOGISTIC REGRESSION   
+* Important variables:
+    + Being a smoker.
+    + Age.
+    + BMI: overweight, obese1, obese2
+    + Children
+* The initial model included region and sex, but those were insignificant. They are not inluded in the model below. 
+```{r}
+#binary variable for charges_factor = high
+library(dplyr)
+hc1 <- health_charges_clean %>% mutate(chargesbin = if_else (charges_factor == "high", 1, 0))
+library(caTools)
+set.seed(88) 
+split  = sample.split(hc1$chargesbin, SplitRatio = .75 ) 
+hc1train = subset(hc1, split == TRUE)
+hc1test= subset(hc1, split == FALSE)
+```
+
+```{r}
+lgall= glm(chargesbin ~ bmi_factor + age_factor + smoker + children,  data = hc1train, family = binomial)
+predicttrain = predict(lgall, type = "response")
+summary(lgall)
+plot(lgall)
+```
+
+####CONFUSION MATRIX ON TRAINING SET  
+* 93.02% accuracy of predicting high health charges.
+
+####CONFUSION MATRIX ON TESTING SET  
+* Our model has 91.94% accuracy of predicting high health charges
+* Sensitivity: true positive rate, 0.7380952
+* Specificity: false positive rate, 0.01992032
+```{r}
+table(hc1train$chargesbin, predicttrain > .5)
+(192 + 739) / (192 + 59 + 13 + 739)
+#true positive: 
+192 / (192 + 59)
+#false positive: 
+13 / (739 + 13)
+```
+
+```{r}
+predicttest = predict(lgall, type = "response", newdata = hc1test)
+table(hc1test$chargesbin, predicttest > .5)
+(62 + 246) / ( 62 + 22 + 5 + 246)
+#true positive: 
+62 / (22 + 62)
+#false positive: 
+5 / (246 + 5)
+```
+*ROC Curve:*
+Area under the curve: 0.8706. We have a good model. 
+```{r}
+library(ROCR)
+ROCRpred <- prediction(predicttest, hc1test$chargesbin)
+ROCRperf <- performance(ROCRpred, "tpr", "fpr")
+plot(ROCRperf, colorize = TRUE)
+```
+
+```{r}
+library(pROC)
+roc_obj <- roc(hc1test$chargesbin, predicttest)
+auc(roc_obj)
+```
+
+###CLUSTERING
+* Heigharchial clustering with dendrogram; all variables aside from charges.
+* Eight clusters: groups with high charges:
+    + Group 1 was a predictor of high charges at 91.7%
+    + The percentage of high charges and the percent of smokers within each cluster were equal across all clusters. 
+    + Smoking and high charges were most powerful in the clustering algorithm.
+```{r}
+hc2 <- binary_charges
+distances = dist(hc2[c(-1, -2)], method = "euclidian")
+cluster1 = hclust(distances, method = "ward")
+plot(cluster1)
+```
+
+```{r}
+clustergroups = cutree(cluster1, k = 8)
+str(clustergroups)
+
+highv <- tapply(hc2$charges_factor_high, clustergroups, mean)
+highv <- as.vector(highv) 
+smokev <- tapply(hc2$smoker_yes, clustergroups, mean)
+smokev <- as.vector(highv)
+nev <- tapply(hc2$region_northeast, clustergroups, mean)
+nev <- as.vector(nev)
+nwv <- tapply(hc2$region_northwest, clustergroups, mean)
+nwv <- as.vector(nwv)
+swv <- tapply(hc2$region_southwest, clustergroups, mean)
+swv <- as.vector(swv)
+sev <- tapply(hc2$region_southeast, clustergroups, mean)
+sev <- as.vector(sev)
+sexfv <- tapply(hc2$sex_female, clustergroups, mean)
+sexfv <- as.vector(sexfv)
+ch0v <- tapply(hc2$children_0, clustergroups, mean)
+ch0v <- as.vector(ch0v)
+ch1v <- tapply(hc2$children_1, clustergroups, mean)
+ch1v <- as.vector(ch1v)
+ch2v <- tapply(hc2$children_2, clustergroups, mean)
+ch2v <- as.vector(ch2v)
+ch3v <- tapply(hc2$children_3, clustergroups, mean)
+ch3v <- as.vector(ch3v)
+ch4v <- tapply(hc2$children_4, clustergroups, mean)
+ch4v <- as.vector(ch4v)
+ch5v <- tapply(hc2$children_5, clustergroups, mean)
+ch5v <- as.vector(ch5v)
+bmiuv <- tapply(hc2$bmi_factor_underweight, clustergroups, mean)
+bmiuv <- as.vector(bmiuv)
+bmihv <- tapply(hc2$bmi_factor_healthy_weight, clustergroups, mean)
+bmihv <- as.vector(bmihv)
+bmiov <- tapply(hc2$bmi_factor_overweight, clustergroups, mean)
+bmiov <- as.vector(bmiov)
+bmio1v <- tapply(hc2$bmi_factor_obese_1, clustergroups, mean)
+bmio1v <- as.vector(bmio1v)
+bmio2v <- tapply(hc2$bmi_factor_obese_2, clustergroups, mean)
+bmio2v <- as.vector(bmio2v)
+bmio3v <- tapply(hc2$bmi_factor_obese_3, clustergroups, mean)
+bmio3v <- as.vector(bmio3v)
+
+clusterframe <- cbind(highv, smokev, sexfv, bmiuv, bmihv, bmiov, bmio1v, bmio2v, bmio3v, ch0v, ch1v, ch2v, ch3v, ch4v, ch5v, nev, nwv, sev, swv )
+
+head(clusterframe)
+```
+
+
+***
+
+##CONCLUSION
+By far, the most significant predictor of high health charges was being a smoker. Other important predictors were age and bmi. 
+
+For our linear regression, all variables were significant aside from sex in developing a model, with the following variables did have significant effects on charges: being a smoker (+$23754.01), having two childern (+$1633.53), having 3 children (+$963.67), higher bmi (+$331.84), higher age (+$257.43), living in the southeast (-$941.98), and living in the southwest (-$809.73). Age, number of children, and bmi were most significant. The linear regressions including all variables had an R^2 of 75% for the general population, and R^2 of 61% for the high charges population. The linear regression of only "high" charges showed that it was more difficult to predict the cause of the charges without the comparison of "low" charges. The significance of certain facets was different between the general model and the "high" charges model. Smoker was a stronger predictor for the general population, with a difference in charges of $23616.0 versus $9586.85, and a difference in R^2 of 0.6195 versus 0.1342. Bmi was a stronger predictor for population with "high" charges with a difference in charges of $393.87 versus $1166.60, and a difference in R^2 of 0.03862 versus 0.4016. Children was a significant predictor for the general population's charges, but not a significant predictor for the data subset of "high" charges.
+
+For the logistic regression, the significant variables were smoker, age, bmi, and number of children. Our model has 91.94% accuracy of predicting high health charges, with a true positive rate of 0.7380952 and false positive rate of 0.01992032. The area under the ROCR curve was 0.8706. 
+
+Clustering drew similar conclusions to the linear regression models; smoking was the only significant variable in clusters with high health charges.
+
+It's interesting to consider how to handle charging smokers for health insurance, when this is a behavioral cause of high charges. It is illegal to charge more for insurance for individuals with pre-existing conditions, but insurance companies do charge more for people who don't attest to non-smoking status.
+
+It could be useful to have more data on behavioral habits to use as predictive measures; it is legal to adjust insurance charges for individual behaviors. Examples could include exercise level, sleep, and diet. Technology such as smart watches and more could eventually be used for this data collection. Perhaps people could receive reduced rates for providing data to incentivize the provision of data. People engaging in behaviors that generally reduce charges could receive lower rates. This also becomes an ethics question, as some individuals may have significant obstacles to engaging in cost-lowering behaviors due to their living location, profession, and income level, among other things.  
+
+It would be interesting to see how socioeconomic variables impact health charges (education level, income, marital status, and housing). It could also be valuable to study the breakdown of charges themselves (medication, urgent care, preventative care) in respect to overall charges. From this study, it is clear that personal attributes can predict health charges to a notable degree. Increasing the scope of our data collection and the specificity of charges breakdown could improve the accuracy and scope of our predictive models. 

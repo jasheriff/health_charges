@@ -1,0 +1,218 @@
+---
+title: "machine learning approach"
+author: "Julia Sheriff"
+date: "10/28/2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+###GENERAL IDEA OF DATASET
+
+```{r}
+hc1 <- read.csv("health_charges_clean.csv")
+colnames(hc1)
+hc1 <- hc1[ c(-1)]
+str(hc1)
+head(hc1)
+hc2 <- read.csv("binary_charges.csv")
+colnames(hc2)
+hc2 <- hc2[ c(-1)]
+str(hc2)
+head(hc2)
+```
+
+###LINEAR REGRESSIONS:
+* Checking class of variables: 
+```{r}
+str(hc1$smoker)
+str(hc1$region)
+str(hc1$sex)
+str(hc1$children)
+#because sex, region, and smoker are factors, the regression output will give a comparative interpretion of category against all the others in that facet.
+#children is integer, so children will be treated as a variable in itself.
+```
+
+* Linear model:
+* Adjusted R-squared is .7494, so the 75% of the value of the charges can be attributed to these variables.
+* Significant variables:
+    + being a smoker increases charges by $23848.9
+    + having higher numbers of children increases charges by $475.5
+    + higher bmi increases charges by $339.2
+    + higher age increases charges by $256.9
+
+```{r}
+lmall <- lm ( charges ~ bmi + age + smoker + sex + children + region, data = hc1)
+summary(lmall, method = lm)
+plot(lmall)
+```
+
+###LOGISTIC REGRESSIONS:   
+Create testing set:
+```{r}
+library(caTools)
+set.seed(88)  
+
+split  = sample.split(hc1$charges_factor, SplitRatio = .75 ) 
+hc1train = subset(hc1, split == TRUE)
+hc1test= subset(hc1, split == FALSE)
+```
+###Logistic regression:
+
+* Important variables:
+    + Being a smoker.
+    + Age. Being in 40s was a less significant predictor than other age brackets. 
+    + BMI: overweight, obese1, obese2
+```{r}
+lgall= glm(charges_factor ~ bmi_factor + age_factor + smoker + children + sex + region,  data = hc1train, family = binomial)
+summary(lgall)
+plot(lgall)
+```
+
+* Prediction:
+    + 25% ability to prdict high charges, and 92% ability to predict low charges?
+```{r}
+predicttrain = predict(lgall, type = "response")
+tapply(predicttrain, hc1train$charges_factor, mean) 
+```
+
+* Confusion matrix on training set with .5 threshhold:
+    + 93.02% accuracy of predicting high health charges
+```{r}
+table(hc1train$charges_factor, predicttrain > .5)
+(193 + 740) / ( 193 + 58 + 12 + 740)
+```
+
+* Confusion matrix on testing set with .5 threshhold:
+    + 91.94% accuracy of predicting high health charges
+```{r}
+predicttest = predict(lgall, type = "response", newdata = hc1test)
+table(hc1test$charges_factor, predicttest > .5)
+(62 + 246) / ( 62 + 22 + 5 + 246)
+```
+
+
+###CLUSTERING:
+* Heigharchial clustering with dendrogram of all variables aside from charge.
+```{r}
+colnames(hc2)
+distances = dist(hc2[c(-1, -2)], method = "euclidian")
+cluster1 = hclust(distances, method = "ward")
+plot(cluster1)
+```
+
+*Eight clusters: groups with high charges:
+    + Group 1 was a predictor of high charges at 91.7%
+    + The percentage of high charges and the percent of smokers within each cluster were equal across all clusters. 
+    + Smoking and high charges were most powerful in the clustering algorithm.
+```{r}
+clustergroups = cutree(cluster1, k = 8)
+str(clustergroups)
+highv <- tapply(hc2$charges_factor_high, clustergroups, mean)
+highv <- as.vector(highv) 
+smokev <- tapply(hc2$smoker_yes, clustergroups, mean)
+smokev <- as.vector(highv)
+nev <- tapply(hc2$region_northeast, clustergroups, mean)
+nev <- as.vector(nev)
+nwv <- tapply(hc2$region_northwest, clustergroups, mean)
+nwv <- as.vector(nwv)
+swv <- tapply(hc2$region_southwest, clustergroups, mean)
+swv <- as.vector(swv)
+sev <- tapply(hc2$region_southeast, clustergroups, mean)
+sev <- as.vector(sev)
+sexfv <- tapply(hc2$sex_female, clustergroups, mean)
+sexfv <- as.vector(sexfv)
+ch0v <- tapply(hc2$children_0, clustergroups, mean)
+ch0v <- as.vector(ch0v)
+ch1v <- tapply(hc2$children_1, clustergroups, mean)
+ch1v <- as.vector(ch1v)
+ch2v <- tapply(hc2$children_2, clustergroups, mean)
+ch2v <- as.vector(ch2v)
+ch3v <- tapply(hc2$children_3, clustergroups, mean)
+ch3v <- as.vector(ch3v)
+ch4v <- tapply(hc2$children_4, clustergroups, mean)
+ch4v <- as.vector(ch4v)
+ch5v <- tapply(hc2$children_5, clustergroups, mean)
+ch5v <- as.vector(ch5v)
+bmiuv <- tapply(hc2$bmi_factor_underweight, clustergroups, mean)
+bmiuv <- as.vector(bmiuv)
+bmihv <- tapply(hc2$bmi_factor_healthy_weight, clustergroups, mean)
+bmihv <- as.vector(bmihv)
+bmiov <- tapply(hc2$bmi_factor_overweight, clustergroups, mean)
+bmiov <- as.vector(bmiov)
+bmio1v <- tapply(hc2$bmi_factor_obese_1, clustergroups, mean)
+bmio1v <- as.vector(bmio1v)
+bmio2v <- tapply(hc2$bmi_factor_obese_2, clustergroups, mean)
+bmio2v <- as.vector(bmio2v)
+bmio3v <- tapply(hc2$bmi_factor_obese_3, clustergroups, mean)
+bmio3v <- as.vector(bmio3v)
+
+clusterframe <- cbind(highv, smokev, sexfv, bmiuv, bmihv, bmiov, bmio1v, bmio2v, bmio3v, ch0v, ch1v, ch2v, ch3v, ch4v, ch5v, nev, nwv, sev, swv )
+
+View(clusterframe)
+```
+
+```
+###CLUSTERING WITHOUT SMOKERS DATA
+*more symmetrical dendrogram; high charges distributed relatively evenly between clusters.
+```{r}
+colnames(hc2)
+hc3 <- hc2[ , c(1:14, 17:22)]
+colnames(hc3)
+
+distancesS = dist(hc3[c(-1, -2)], method = "euclidian")
+clusterS = hclust(distancesS, method = "ward")
+plot(clusterS)
+
+```
+
+```{r}
+clustergroupsS = cutree(clusterS, k = 8)
+str(clustergroupsS)
+highvS <- tapply(hc2$charges_factor_high, clustergroupsS, mean)
+highvS <- as.vector(highvS) 
+smokevS <- tapply(hc2$smoker_yes, clustergroupsS, mean)
+smokevS <- as.vector(highvS)
+nevS <- tapply(hc2$region_northeast, clustergroupsS, mean)
+nevS <- as.vector(nevS)
+nwvS <- tapply(hc2$region_northwest, clustergroupsS, mean)
+nwvS <- as.vector(nwvS)
+swvS <- tapply(hc2$region_southwest, clustergroupsS, mean)
+swvS <- as.vector(swvS)
+sevS <- tapply(hc2$region_southeast, clustergroupsS, mean)
+sevS <- as.vector(sevS)
+sexfvS <- tapply(hc2$sex_female, clustergroupsS, mean)
+sexfvS <- as.vector(sexfvS)
+ch0vS <- tapply(hc2$children_0, clustergroupsS, mean)
+ch0vS <- as.vector(ch0vS)
+ch1vS <- tapply(hc2$children_1, clustergroupsS, mean)
+ch1vS <- as.vector(ch1vS)
+ch2vS <- tapply(hc2$children_2, clustergroupsS, mean)
+ch2vS <- as.vector(ch2vS)
+ch3vS <- tapply(hc2$children_3, clustergroupsS, mean)
+ch3vS <- as.vector(ch3vS)
+ch4vS <- tapply(hc2$children_4, clustergroupsS, mean)
+ch4vS <- as.vector(ch4vS)
+ch5vS <- tapply(hc2$children_5, clustergroupsS, mean)
+ch5vS <- as.vector(ch5vS)
+bmiuvS <- tapply(hc2$bmi_factor_underweight, clustergroupsS, mean)
+bmiuvS <- as.vector(bmiuvS)
+bmihvS <- tapply(hc2$bmi_factor_healthy_weight, clustergroupsS, mean)
+bmihvS <- as.vector(bmihvS)
+bmiovS <- tapply(hc2$bmi_factor_overweight, clustergroupsS, mean)
+bmiovS <- as.vector(bmiovS)
+bmio1vS <- tapply(hc2$bmi_factor_obese_1, clustergroupsS, mean)
+bmio1vS <- as.vector(bmio1vS)
+bmio2vS <- tapply(hc2$bmi_factor_obese_2, clustergroupsS, mean)
+bmio2vS <- as.vector(bmio2vS)
+bmio3vS <- tapply(hc2$bmi_factor_obese_3, clustergroupsS, mean)
+bmio3vS <- as.vector(bmio3vS)
+
+clusterframeS <- cbind(highvS, smokevS, sexfvS, bmiuvS, bmihvS, bmiovS, bmio1vS, bmio2vS, bmio3vS, ch0vS, ch1vS, ch2vS, ch3vS, ch4vS, ch5vS, nevS, nwvS, sevS, swvS )
+
+View(clusterframeS)
+```
